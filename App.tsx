@@ -5,10 +5,9 @@
 */
 
 import React, { useState, useEffect } from 'react';
-import { Languages, Mic, Volume2, Copy, Trash2, ArrowRightLeft, Loader2, Sparkles } from 'lucide-react';
+import { Languages, ArrowRightLeft, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import TranslatorCard from './components/TranslatorCard';
-import { AnimatePresence, motion } from 'framer-motion';
 
 const App: React.FC = () => {
   const [sourceText, setSourceText] = useState('');
@@ -16,6 +15,7 @@ const App: React.FC = () => {
   const [isTranslating, setIsTranslating] = useState(false);
   const [direction, setDirection] = useState<'en-hi' | 'hi-en'>('en-hi');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isAutoPlayEnabled, setIsAutoPlayEnabled] = useState(true);
 
   // Theme Management
   useEffect(() => {
@@ -27,7 +27,8 @@ const App: React.FC = () => {
   }, [isDarkMode]);
 
   const toggleDirection = () => {
-    setDirection(prev => prev === 'en-hi' ? 'hi-en' : 'hi-en');
+    const newDir = direction === 'en-hi' ? 'hi-en' : 'en-hi';
+    setDirection(newDir);
     setSourceText(translatedText);
     setTranslatedText(sourceText);
   };
@@ -84,12 +85,27 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <button 
-          onClick={() => setIsDarkMode(!isDarkMode)}
-          className="p-2.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-        >
-          {isDarkMode ? <span className="text-yellow-400">☀️</span> : <span className="text-zinc-600">🌙</span>}
-        </button>
+        <div className="flex items-center gap-3">
+           <button 
+            onClick={() => setIsAutoPlayEnabled(!isAutoPlayEnabled)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all ${
+              isAutoPlayEnabled 
+              ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400' 
+              : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-400'
+            }`}
+            title={isAutoPlayEnabled ? "Disable Auto-play" : "Enable Auto-play"}
+          >
+            {isAutoPlayEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
+            <span className="hidden sm:inline">AUTO-PLAY</span>
+          </button>
+
+          <button 
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className="p-2.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+          >
+            {isDarkMode ? <span className="text-yellow-400">☀️</span> : <span className="text-zinc-600">🌙</span>}
+          </button>
+        </div>
       </header>
 
       <main className="relative z-10 max-w-5xl mx-auto px-6 pb-20">
@@ -119,7 +135,6 @@ const App: React.FC = () => {
               value={sourceText}
               onChange={(val) => {
                 setSourceText(val);
-                // Debounced effect usually better, but for simplicity:
                 if (val.length === 0) setTranslatedText('');
               }}
               onAction={() => handleTranslate(sourceText)}
@@ -137,6 +152,7 @@ const App: React.FC = () => {
               value={translatedText}
               isLoading={isTranslating}
               type="output"
+              autoPlay={isAutoPlayEnabled}
               onCopy={() => handleCopy(translatedText)}
               onClear={() => {
                 setSourceText('');

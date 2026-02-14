@@ -17,6 +17,7 @@ interface TranslatorCardProps {
   onAction?: () => void;
   isLoading?: boolean;
   type: 'input' | 'output';
+  autoPlay?: boolean;
   onSpeechInput?: (text: string) => void;
   onCopy?: () => void;
   onClear?: () => void;
@@ -52,6 +53,7 @@ const TranslatorCard: React.FC<TranslatorCardProps> = ({
   onAction,
   isLoading,
   type,
+  autoPlay,
   onSpeechInput,
   onCopy,
   onClear
@@ -62,6 +64,9 @@ const TranslatorCard: React.FC<TranslatorCardProps> = ({
   const liveSessionRef = useRef<any>(null);
   const recordingContextRef = useRef<AudioContext | null>(null);
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  
+  // Ref to track the last played value to avoid re-playing same value on render
+  const lastPlayedValueRef = useRef<string>('');
 
   // Clean up on unmount
   useEffect(() => {
@@ -69,6 +74,14 @@ const TranslatorCard: React.FC<TranslatorCardProps> = ({
       stopRecording();
     };
   }, []);
+
+  // Auto-play logic for output cards
+  useEffect(() => {
+    if (type === 'output' && autoPlay && value && value !== lastPlayedValueRef.current && !isLoading) {
+      handleSpeak();
+      lastPlayedValueRef.current = value;
+    }
+  }, [value, isLoading, autoPlay, type]);
 
   const stopRecording = () => {
     if (scriptProcessorRef.current) {
@@ -80,7 +93,6 @@ const TranslatorCard: React.FC<TranslatorCardProps> = ({
       recordingContextRef.current = null;
     }
     if (liveSessionRef.current) {
-      // session.close() is not explicitly defined in some versions but recommended
       try { liveSessionRef.current.close(); } catch(e) {}
       liveSessionRef.current = null;
     }
@@ -129,10 +141,6 @@ const TranslatorCard: React.FC<TranslatorCardProps> = ({
                 onSpeechInput(transcriptionBuffer);
               }
             }
-            if (message.serverContent?.turnComplete) {
-              // We could stop automatically here if we wanted single-turn STT
-              // But for translation, let the user decide when to stop
-            }
           },
           onerror: (e) => {
             console.error('Live API Error:', e);
@@ -145,7 +153,7 @@ const TranslatorCard: React.FC<TranslatorCardProps> = ({
         config: {
           responseModalities: [Modality.AUDIO],
           inputAudioTranscription: {},
-          systemInstruction: "Transcribe the user's speech exactly as spoken. Do not translate yet."
+          systemInstruction: "Transcribe the user's speech exactly as spoken. Do not translate."
         }
       });
 
@@ -169,7 +177,11 @@ const TranslatorCard: React.FC<TranslatorCardProps> = ({
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: label === 'Hindi' ? 'Puck' : 'Kore' } },
+            voiceConfig: { 
+              prebuiltVoiceConfig: { 
+                voiceName: label === 'Hindi' ? 'Puck' : 'Kore' 
+              } 
+            },
           },
         },
       });
@@ -177,8 +189,10 @@ const TranslatorCard: React.FC<TranslatorCardProps> = ({
       const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (!audioData) throw new Error("No audio data");
 
-      if (!audioContextRef.current) {
+      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      } else if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
       }
       
       const binaryString = atob(audioData);
@@ -244,10 +258,15 @@ const TranslatorCard: React.FC<TranslatorCardProps> = ({
             <button
               onClick={handleSpeak}
               disabled={!value || isPlaying}
-              className={`p-3 rounded-full transition-all ${isPlaying ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-30'}`}
-              title="Listen to translation"
+              className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
+                isPlaying 
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-30'
+              }`}
+              title={label === 'Hindi' ? "Speak Hindi" : "Listen to translation"}
             >
               <Volume2 size={18} className={isPlaying ? 'animate-pulse' : ''} />
+              {label === 'Hindi' && <span className="text-xs font-bold uppercase tracking-wider">Speak Hindi</span>}
             </button>
           )}
 
@@ -255,7 +274,7 @@ const TranslatorCard: React.FC<TranslatorCardProps> = ({
             <button
               onClick={onCopy}
               className="p-3 rounded-full bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
-              title="Copy"
+              title="Copy translation"
             >
               <Copy size={18} />
             </button>
@@ -277,7 +296,7 @@ const TranslatorCard: React.FC<TranslatorCardProps> = ({
             <button
               onClick={onClear}
               className="p-3 text-zinc-400 hover:text-red-500 transition-colors"
-              title="Clear"
+              title="Clear text"
             >
               <Trash2 size={18} />
             </button>
