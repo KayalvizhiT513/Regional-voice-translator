@@ -1,0 +1,7 @@
+{
+  "name": "Linguist - EN/HI Translator",
+  "description": "High-quality English to Hindi and Hindi to English translator with voice support powered by Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
