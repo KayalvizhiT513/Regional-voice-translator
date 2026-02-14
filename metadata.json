@@ -1,7 +1,8 @@
 {
-  "name": "Linguist - EN/HI Translator",
-  "description": "High-quality English to Hindi and Hindi to English translator with voice support powered by Gemini.",
+  "name": "Linguist Bot Console",
+  "description": "Enterprise-grade real-time Google Meet translation bot command center.",
   "requestFramePermissions": [
-    "microphone"
+    "microphone",
+    "camera"
   ]
 }
